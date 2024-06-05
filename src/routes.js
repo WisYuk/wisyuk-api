@@ -1,7 +1,27 @@
-const { config } = require('dotenv');
-const { signUpHandler, loginHandler, viewProfilHandler, editProfilHandler } = require('./handlers');
-const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
+const { config } = require("dotenv");
+const {
+  signUpHandler,
+  loginHandler,
+  viewProfilHandler,
+  editProfilHandler,
+  addUserPreferencesHandler,
+  getAllUserPreferencesHandler,
+  getUserPreferencesByIdHandler,
+  editUserPreferencesByIdHandler,
+  deleteUserPreferencesByIdHandler,
+  addHomePageHandler,
+  getAllHomePageHandler,
+  getHomePageByIdHandler,
+  editHomePageByIdHandler,
+  deleteHomePageByIdHandler,
+  addPaymentMethodHandler,
+  getAllPaymentMethodHandler,
+  getPaymentMethodByIdHandler,
+  editPaymentMethodByIdHandler,
+  deletePaymentMethodByIdHandler,
+} = require("./handlers");
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
 
 const routes = [
     {
@@ -25,12 +45,12 @@ const routes = [
     },
     {
         method: 'GET',
-        path: '/profile/{userID}',
+        path: '/profile/{userId}',
         handler: viewProfilHandler
     },
     {
         method: 'PUT',
-        path: '/profile/{userID}',
+        path: '/profile/{userId}',
         config: {
             payload: {
                 output: 'stream',
@@ -39,7 +59,7 @@ const routes = [
                 allow: 'multipart/form-data',
                 maxBytes: 1000000
             },
-            handler: editProfilHandler
+            handler: signUpHandler
         }
     },
 ];

@@ -234,4 +234,26 @@ module.exports = {
     loginHandler,
     viewProfilHandler,
     editProfilHandler,
+    addUserPreferencesHandler,
+
+ // Export User Preferences Handlers
+  getAllUserPreferencesHandler,
+  getUserPreferencesByIdHandler,
+  editUserPreferencesByIdHandler,
+  deleteUserPreferencesByIdHandler,
+
+  // Export Home Page Handlers
+  addHomePageHandler,
+  getAllHomePageHandler,
+  getHomePageByIdHandler,
+  editHomePageByIdHandler,
+  deleteHomePageByIdHandler,
+  
+  // Export Payment Method Handlers
+  addPaymentMethodHandler,
+  getAllPaymentMethodHandler,
+  getPaymentMethodByIdHandler,
+  editPaymentMethodByIdHandler,
+  deletePaymentMethodByIdHandler,
+
 };
