@@ -25,12 +25,12 @@ const routes = [
     },
     {
         method: 'GET',
-        path: '/profile/{userId}',
+        path: '/profile/{userID}',
         handler: viewProfilHandler
     },
     {
         method: 'PUT',
-        path: '/profile/{userId}',
+        path: '/profile/{userID}',
         config: {
             payload: {
                 output: 'stream',
@@ -39,7 +39,7 @@ const routes = [
                 allow: 'multipart/form-data',
                 maxBytes: 1000000
             },
-            handler: signUpHandler
+            handler: editProfilHandler
         }
     },
 ];

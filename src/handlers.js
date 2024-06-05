@@ -1,6 +1,6 @@
 const pool = require('./db');
 const bcrypt = require('bcrypt');
-const { uploadFile } = require('./cloudStorage');
+const uploadFileStream = require('./cloudStorage');
 const fs = require('fs');
 const path = require('path');
 const { rejects } = require('assert');
@@ -10,18 +10,16 @@ const saltPass = 10;
 // SIGN UP
 const signUpHandler = async (request, h) => {
     const { name, email, password, promotion } = request.payload;
-    // karena kolom image di cloud sql diisi dari url per item cloud storage
-    const file = request.payload.image;
 
-    if (!name || !email || !password || !promotion === undefined || !file) {
+    if (!name || !email || !password || promotion === undefined) {
         return h.response({
             status: 'fail',
-            message: 'all fields are required'
+            message: 'name, email, password, and promotion fields are required'
         }).code(400);
     }
 
     try {
-        // cek dlu apakah sudah pernah daftar pakai email yg sama
+        // Check if the email already exists
         const [existingEmail] = await pool.query('SELECT * FROM users WHERE email=?', [email]);
         if (existingEmail.length > 0) {
             return h.response({
@@ -33,41 +31,17 @@ const signUpHandler = async (request, h) => {
         // Hash the password
         const hashedPass = await bcrypt.hash(password, saltPass);
 
-        // save the file locally before uploading
-        const filePath = path.join(__dirname, 'uploads', file.hapi.filename);
-        const fileStream = fs.createWriteStream(filePath);
+        // Process image file if it exists
+        let imageUrl = null;
 
-        file.pipe(fileStream);
-
-        const imageUploadPromise = new Promise((resolve, reject) => {
-            file.on('end', async () => {
-                try {
-                    const imageUrl = await uploadFile(filePath, `images/${file.hapi.filename}`);
-                    resolve(imageUrl);
-                } catch (err) {
-                    reject(err);
-                }
-            });
-        });
-
-        const imageUrl = await imageUploadPromise;
-
-        // isi current timestamp
+        // Set current timestamp
         const timestamp = new Date();
 
-        // Insert Query
-        await pool.query('INSERT INTO users (name, email, password, bool_promotion, created_at, updated_at, image) VALUES (?,?,?,?,?,?,?);', [
-            name,
-            email,
-            hashedPass,
-            promotion,
-            timestamp,
-            timestamp,
-            imageUrl
-        ]);
-
-        // Clean up the local file
-        fs.unlinkSync(filePath);
+        // Insert query
+        await pool.query(
+            'INSERT INTO users (name, email, password, bool_promotion, created_at, updated_at, image) VALUES (?,?,?,?,?,?,?);',
+            [name, email, hashedPass, promotion, timestamp, timestamp, imageUrl]
+        );
 
         return h.response({
             status: 'success',
@@ -82,6 +56,7 @@ const signUpHandler = async (request, h) => {
         }).code(500);
     }
 };
+
 
 // LOGIN
 const loginHandler = async (request, h) => {
@@ -141,17 +116,18 @@ const viewProfilHandler = async (request, h) => {
 
     try {
         // Query to get user email
-        const [userRows] = await pool.query('SELECT email FROM users where id=?', [userID]);
+        const [userRows] = await pool.query('SELECT name, email, image FROM users where id=?', [userID]);
+        console.log('User Rows:', userRows);  // Add this line
 
         // cek apakah email ada
         if (userRows.length === 0) {
             return h.response({
                 status: 'fail',
-                message: 'email not found'
+                message: 'user not found'
             }).code(404);
         }
-        // email ditemukan
-        const userEmail = userRows[0].email;
+        // user ditemukan
+        const { email: uEmail, name: uName, image: uImage } = userRows[0];
 
         // Query to get user preferences
         const [userPref] = await pool.query('SELECT p.name as preference_name FROM users u INNER JOIN users_preferences up on u.id = up.users_id INNER JOIN preferences p on p.id = up.preferences_id WHERE u.id = ?;', [userID]);
@@ -166,8 +142,10 @@ const viewProfilHandler = async (request, h) => {
         return h.response({
             status: 'success',
             data: {
-                email: userEmail,
-                preferences: preferences
+                name: uName,
+                email: uEmail,
+                preferences: preferences,
+                image: uImage
             }
         }).code(200);
 
@@ -178,52 +156,78 @@ const viewProfilHandler = async (request, h) => {
             message: 'Internal server error'
         }).code(500);
     }
-}
+};
 
 const editProfilHandler = async (request, h) => {
     const { userID } = request.params;
-    const { name, password } = request.payload;
+    const { name, password, preferences } = request.payload;
     const file = request.payload.image;
 
-    // query for current data
-    const [userRows] = await pool.query('SELECT name, password, updated_at FROM users WHERE id = ?', [userId]);
-    if (userRows.length === 0) {
+    try {
+        // Query for current data
+        const [userRows] = await pool.query('SELECT name, password, updated_at, image FROM users WHERE id = ?', [userID]);
+        if (userRows.length === 0) {
+            return h.response({
+                status: 'fail',
+                message: 'user not found'
+            }).code(404);
+        }
+
+        const userCurData = userRows[0];
+
+        // Hash the new password if provided
+        let hashedPass = userCurData.password;
+        if (password) {
+            hashedPass = await bcrypt.hash(password, 10);
+        }
+
+        // New image profile
+        let imageUrl = userCurData.image;
+        if (file && file.hapi && file.hapi.filename) {
+            const imagePath = file.hapi.filename;
+            imageUrl = await uploadFileStream(file, imagePath);
+        }
+
+        const updatedAt = new Date();
+
+        // Check if data exists in update_profiles table
+        const [updateRows] = await pool.query('SELECT id FROM update_profiles WHERE users_id = ?', [userID]);
+
+        if (updateRows.length > 0) {
+            // Data already exists, update the record
+            await pool.query('UPDATE update_profiles SET name_old = ?, password_old = ?, updated_at = ? WHERE users_id = ?',
+                [userCurData.name, userCurData.password, userCurData.updated_at, userID]);
+        } else {
+            // No data exists, insert a new record
+            await pool.query('INSERT INTO update_profiles (name_old, password_old, updated_at, users_id) VALUES (?, ?, ?, ?)',
+                [userCurData.name, userCurData.password, userCurData.updated_at, userID]);
+        }
+
+        // Update table users
+        await pool.query('UPDATE users SET name = ?, password = ?, updated_at = ?, image = ? WHERE id = ?',
+            [name || userCurData.name, hashedPass, updatedAt, imageUrl, userID]);
+
+        console.log('Preference values:', preferences);
+
+        // insert the new preferences
+        const preferenceValues = preferences.map(preferenceID => [userID, preferenceID, updatedAt]);
+        console.log('Preference values:', preferenceValues);
+        await pool.query('INSERT INTO users_preferences (users_id, preferences_id, updated_at) VALUES ?', [preferenceValues]);
+        console.log('Insert result:', result);
+
+        return h.response({
+            status: 'success',
+            message: 'Profile updated successfully',
+        }).code(200);
+    } catch (err) {
+        console.error(err);
         return h.response({
             status: 'fail',
-            message: 'email not found'
-        }).code(404);
+            message: 'Internal server error'
+        }).code(500);
     }
+};
 
-    const userCurData = userRows[0];
-
-    // Hash the new password
-    let hashedPass = user.password;
-    if (password) {
-        hashedPass = await bcrypt.hash(password, 10);
-    }
-
-    // new image profil
-    let imageUrl = user.image;
-    if (file) {
-        const imagePath = file.hapi.filename;
-        imageUrl = await uploadFile(file.path, imagePath);
-    }
-
-    const updatedAt = new Date();
-
-    // store old data into update_profile
-    await pool.query('INSERT INTO update_profil (user_id, old_name, old_password, old_updated_at) VALUES (?, ?, ?, ?)',
-        [userID, user.name, user.password, user.updated_at]);
-
-    // update table users
-    await pool.query('UPDATE users SET name = ?, password = ?, updated_at = ?, image = ? WHERE id = ?',
-        [name, hashedPass, updatedAt, imageUrl, userID]);
-
-    return h.response({
-        status: 'success',
-        message: 'Profile updated successfully',
-    }).code(200);
-}
 
 module.exports = {
     signUpHandler,
