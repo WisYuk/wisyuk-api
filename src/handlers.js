@@ -1,10 +1,11 @@
 const pool = require('./db');
 const bcrypt = require('bcrypt');
 const uploadFileStream = require('./cloudStorage');
-const fs = require('fs');
-const path = require('path');
-const { rejects } = require('assert');
-const { request } = require('http');
+// const fs = require('fs');
+// const path = require('path');
+// const { rejects } = require('assert');
+// const { request } = require('http');
+
 const saltPass = 10;
 
 // SIGN UP
@@ -234,26 +235,4 @@ module.exports = {
     loginHandler,
     viewProfilHandler,
     editProfilHandler,
-    addUserPreferencesHandler,
-
- // Export User Preferences Handlers
-  getAllUserPreferencesHandler,
-  getUserPreferencesByIdHandler,
-  editUserPreferencesByIdHandler,
-  deleteUserPreferencesByIdHandler,
-
-  // Export Home Page Handlers
-  addHomePageHandler,
-  getAllHomePageHandler,
-  getHomePageByIdHandler,
-  editHomePageByIdHandler,
-  deleteHomePageByIdHandler,
-  
-  // Export Payment Method Handlers
-  addPaymentMethodHandler,
-  getAllPaymentMethodHandler,
-  getPaymentMethodByIdHandler,
-  editPaymentMethodByIdHandler,
-  deletePaymentMethodByIdHandler,
-
 };
