@@ -135,7 +135,7 @@ const viewProfilHandler = async (request, h) => {
     if (userPref.length === 0) {
       return h.response({
         status: 'fail',
-        message: 'email not found'
+        message: 'preferences not found'
       }).code(404);
     }
     const preferences = userPref.map(row => row.preference_name);
@@ -232,10 +232,34 @@ const editProfilHandler = async (request, h) => {
   }
 };
 
+const paymentSuccessHandler = async (request, h) => {
+  const { userID, tourismID, go_date } = request.payload;
+
+  try {
+    const createdAt = new Date();
+
+    // query add to your_plan
+    await pool.query('INSERT INTO user_plans (users_id, tourism_id, created_at, go_at) VALUES (?,?,?,?);',
+      [userID, tourismID, createdAt, go_date]
+    );
+    
+    return h.response({
+      status: 'success',
+      message: 'Payment Success. Plan added'
+    }).code(200);
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
 
 module.exports = {
   signUpHandler,
   loginHandler,
   viewProfilHandler,
   editProfilHandler,
+  paymentSuccessHandler
 };

@@ -3,24 +3,14 @@ const {
   loginHandler,
   viewProfilHandler,
   editProfilHandler,
+  paymentSuccessHandler
 } = require("./handlers");
-// const multer = require("multer");
-// const upload = multer({ dest: "uploads/" });
 
 const routes = [
   {
     method: 'POST',
     path: '/signup',
-    config: {
-      payload: {
-        output: 'stream',
-        parse: true,
-        multipart: true,
-        allow: 'multipart/form-data',
-        maxBytes: 1000000
-      },
-      handler: signUpHandler
-    }
+    handler: signUpHandler
   },
   {
     method: 'POST',
@@ -46,6 +36,11 @@ const routes = [
       handler: editProfilHandler
     }
   },
+  {
+    method: 'POST',
+    path: '/payment-success',
+    handler: paymentSuccessHandler
+  }
 ];
 
 module.exports = routes;
