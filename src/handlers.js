@@ -232,7 +232,60 @@ const editProfilHandler = async (request, h) => {
   }
 };
 
-const paymentSuccessHandler = async (request, h) => {
+const addPaidPlanHandler = async (request, h) => {
+  const { userID, tourismID, hotelID, rideID, tourGuideID, go_date, status, paymentMethodID } = request.payload;
+  
+  if (!userID || !tourismID || !go_date || !hotelID || !rideID || !tourGuideID || !status || !paymentMethodID) {
+    return h.response({
+      status: 'fail',
+      message: 'All fields are required'
+    }).code(400);
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    const createdAt = new Date();
+
+    // Start a transaction
+    await connection.beginTransaction();
+
+    // Insert into payment_receipts
+    const [paymentResult] = await connection.query(
+      'INSERT INTO payment_receipts (created_at, updated_at, status, users_id, payment_methods_id) VALUES (?,?,?,?,?);',
+      [createdAt, createdAt, status, userID, paymentMethodID]
+    );
+
+    // Get the inserted payment_receipts_id
+    const paymentReceiptsID = paymentResult.insertId;
+
+    // Insert into user_plans
+    await connection.query(
+      'INSERT INTO user_plans (created_at, go_at, users_id, tourism_id, hotels_id, rides_id, tour_guides_id, payment_receipts_id) VALUES (?,?,?,?,?,?,?,?);',
+      [createdAt, go_date, userID, tourismID, hotelID, rideID, tourGuideID, paymentReceiptsID]
+    );
+
+    // Commit the transaction
+    await connection.commit();
+
+    return h.response({
+      status: 'success',
+      message: 'Payment Success. Plan added'
+    }).code(200);
+  } catch (err) {
+    // Rollback the transaction in case of an error
+    await connection.rollback();
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  } finally {
+    // Release the connection back to the pool
+    connection.release();
+  }
+};
+
+const addFavouritePlanHandler = async (request, h) => {
   const { userID, tourismID, hotelID, rideID, tourGuideID, go_date } = request.payload;
 
   if (!userID || !tourismID || !go_date || !hotelID || !rideID || !tourGuideID) {
@@ -246,12 +299,12 @@ const paymentSuccessHandler = async (request, h) => {
     const createdAt = new Date();
 
     // query add to your_plan
-    await pool.query('INSERT INTO user_plans (created_at, go_at, users_id, tourism_id, hotels_id, rides_id, tour_guides_id)' + 
+    await pool.query('INSERT INTO user_plans (created_at, go_at, users_id, tourism_id, hotels_id, rides_id, tour_guides_id)' +
       'VALUES (?,?,?,?,?,?,?);', [createdAt, go_date, userID, tourismID, hotelID, rideID, tourGuideID]);
 
     return h.response({
       status: 'success',
-      message: 'Payment Success. Plan added'
+      message: 'Plan added to favourite'
     }).code(200);
   } catch (err) {
     console.error(err);
@@ -267,5 +320,6 @@ module.exports = {
   loginHandler,
   viewProfilHandler,
   editProfilHandler,
-  paymentSuccessHandler
+  addPaidPlanHandler,
+  addFavouritePlanHandler
 };

@@ -3,7 +3,8 @@ const {
   loginHandler,
   viewProfilHandler,
   editProfilHandler,
-  paymentSuccessHandler
+  addPaidPlanHandler,
+  addFavouritePlanHandler
 } = require("./handlers");
 
 const routes = [
@@ -38,8 +39,13 @@ const routes = [
   },
   {
     method: 'POST',
-    path: '/payment-success',
-    handler: paymentSuccessHandler
+    path: '/add-paid-plan',
+    handler: addPaidPlanHandler
+  },
+  {
+    method: 'POST',
+    path: '/add-favourite-plan',
+    handler: addFavouritePlanHandler
   }
 ];
 
