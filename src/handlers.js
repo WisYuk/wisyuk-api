@@ -233,16 +233,22 @@ const editProfilHandler = async (request, h) => {
 };
 
 const paymentSuccessHandler = async (request, h) => {
-  const { userID, tourismID, go_date } = request.payload;
+  const { userID, tourismID, hotelID, rideID, tourGuideID, go_date } = request.payload;
+
+  if (!userID || !tourismID || !go_date || !hotelID || !rideID || !tourGuideID) {
+    return h.response({
+      status: 'fail',
+      message: 'All fields are required'
+    }).code(400);
+  }
 
   try {
     const createdAt = new Date();
 
     // query add to your_plan
-    await pool.query('INSERT INTO user_plans (users_id, tourism_id, created_at, go_at) VALUES (?,?,?,?);',
-      [userID, tourismID, createdAt, go_date]
-    );
-    
+    await pool.query('INSERT INTO user_plans (created_at, go_at, users_id, tourism_id, hotels_id, rides_id, tour_guides_id)' + 
+      'VALUES (?,?,?,?,?,?,?);', [createdAt, go_date, userID, tourismID, hotelID, rideID, tourGuideID]);
+
     return h.response({
       status: 'success',
       message: 'Payment Success. Plan added'
