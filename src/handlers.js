@@ -234,7 +234,7 @@ const editProfilHandler = async (request, h) => {
 
 const addPaidPlanHandler = async (request, h) => {
   const { userID, tourismID, hotelID, rideID, tourGuideID, go_date, status, paymentMethodID } = request.payload;
-  
+
   if (!userID || !tourismID || !go_date || !hotelID || !rideID || !tourGuideID || !status || !paymentMethodID) {
     return h.response({
       status: 'fail',
@@ -245,6 +245,19 @@ const addPaidPlanHandler = async (request, h) => {
   const connection = await pool.getConnection();
   try {
     const createdAt = new Date();
+
+    // Check if the user already has a plan with the same go_at date
+    const [existingPlans] = await connection.query(
+      'SELECT 1 FROM user_plans WHERE users_id = ? AND go_at = ? AND tourism_id = ?',
+      [userID, go_date, tourismID]
+    );
+
+    if (existingPlans.length > 0) {
+      return h.response({
+        status: 'fail',
+        message: 'User already has the plan'
+      }).code(409);
+    }
 
     // Start a transaction
     await connection.beginTransaction();
@@ -295,17 +308,250 @@ const addFavouritePlanHandler = async (request, h) => {
     }).code(400);
   }
 
+  const connection = await pool.getConnection();
   try {
     const createdAt = new Date();
 
+    // Check if the user already has a plan with the same go_at date
+    const [existingPlans] = await connection.query(
+      'SELECT 1 FROM favourite_plans WHERE users_id = ? AND go_at = ? AND tourism_id = ?',
+      [userID, go_date, tourismID]
+    );
+
+    if (existingPlans.length > 0) {
+      return h.response({
+        status: 'fail',
+        message: 'user already saved this plan'
+      }).code(409);
+    }
+
     // query add to your_plan
-    await pool.query('INSERT INTO user_plans (created_at, go_at, users_id, tourism_id, hotels_id, rides_id, tour_guides_id)' +
-      'VALUES (?,?,?,?,?,?,?);', [createdAt, go_date, userID, tourismID, hotelID, rideID, tourGuideID]);
+    await pool.query(`INSERT INTO favourite_plans (created_at, go_at, users_id, tourism_id, hotels_id, rides_id, tour_guides_id)
+      VALUES (?,?,?,?,?,?,?);`,
+      [createdAt, go_date, userID, tourismID, hotelID, rideID, tourGuideID]
+    );
 
     return h.response({
       status: 'success',
       message: 'Plan added to favourite'
     }).code(200);
+
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
+
+const viewPaidPlanHandler = async (request, h) => {
+  const { userID } = request.params;
+
+  try {
+    // query to get data from user_plans table
+    const [rows] = await pool.query(
+      `SELECT t.name, up.go_at FROM user_plans up 
+      INNER JOIN users u ON u.id = up.users_id
+      INNER JOIN tourism t ON t.id = up.tourism_id
+      WHERE up.users_id = ?;`,
+      [userID]
+    );
+
+    if (rows.length === 0) {
+      return h.response({
+        status: 'fail',
+        message: 'No plans found for the user'
+      }).code(404);
+    }
+
+    return h.response({
+      status: 'success',
+      data: rows
+    }).code(200);
+
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
+
+const viewFavouritePlanHandler = async (request, h) => {
+  const { userID } = request.params;
+
+  try {
+    // query to get data from user_plans table
+    const [rows] = await pool.query(
+      `SELECT t.name, fp.go_at FROM favourite_plans fp 
+       INNER JOIN users u ON u.id = fp.users_id 
+       INNER JOIN tourism t ON t.id = fp.tourism_id
+       WHERE fp.users_id = ?;`,
+      [userID]
+    );
+
+    if (rows.length === 0) {
+      return h.response({
+        status: 'fail',
+        message: 'No plans favourite found'
+      }).code(404);
+    }
+
+    return h.response({
+      status: 'success',
+      data: rows
+    }).code(200);
+
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
+
+const viewDetailPaidPlanHandler = async (request, h) => {
+  const { userID, tourismID, goAt } = request.params;
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT t.image AS tourism_image, t.name AS tourism_name, t.description AS tourism_description, 
+              h.name AS hotel_name, r.name AS ride_name, tg.name AS tour_guide_name, pr.id AS payment_receipt_id
+       FROM user_plans up 
+       INNER JOIN users u ON u.id = up.users_id 
+       INNER JOIN tourism t ON t.id = up.tourism_id 
+       INNER JOIN hotels h ON h.id = up.hotels_id 
+       INNER JOIN rides r ON r.id = up.rides_id 
+       INNER JOIN tour_guides tg ON tg.id = up.tour_guides_id 
+       INNER JOIN payment_receipts pr ON pr.id = up.payment_receipts_id 
+       WHERE up.users_id = ? AND up.tourism_id = ? AND up.go_at = ?;`,
+      [userID, tourismID, goAt]
+    );
+
+    if (rows.length === 0) {
+      return h.response({
+        status: 'fail',
+        message: 'No matching records found in paid plans'
+      }).code(404);
+    }
+
+    return h.response({
+      status: 'success',
+      data: rows
+    }).code(200);
+
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
+
+const viewDetailFavouritePlanHandler = async (request, h) => {
+  const { userID, tourismID, goAt } = request.params;
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT t.image AS tourism_image, t.name AS tourism_name, t.description AS tourism_description, 
+              h.name AS hotel_name, r.name AS ride_name, tg.name AS tour_guide_name 
+       FROM favourite_plans fp 
+       INNER JOIN users u ON u.id = fp.users_id 
+       INNER JOIN tourism t ON t.id = fp.tourism_id 
+       INNER JOIN hotels h ON h.id = fp.hotels_id 
+       INNER JOIN rides r ON r.id = fp.rides_id 
+       INNER JOIN tour_guides tg ON tg.id = fp.tour_guides_id
+       WHERE fp.users_id = ? AND fp.tourism_id = ? AND fp.go_at = ?;`,
+      [userID, tourismID, goAt]
+    );
+
+    if (rows.length === 0) {
+      return h.response({
+        status: 'fail',
+        message: 'No matching records found in favourite plans'
+      }).code(404);
+    }
+
+    return h.response({
+      status: 'success',
+      data: rows
+    }).code(200);
+
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
+
+const viewPaymentReceipt = async (request, h) => {
+  // We can get data when view paid plan detail send the payment_receipt id
+  const { paymentReceiptID } = request.params;
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT pr.created_at, pr.updated_at, pr.status, pr.users_id, pr.payment_methods_id,
+              u.name AS user_name, pm.name AS payment_method_name
+       FROM payment_receipts pr
+       INNER JOIN users u ON u.id = pr.users_id
+       INNER JOIN payment_methods pm ON pm.id = pr.payment_methods_id
+       WHERE pr.id = ?;`,
+      [paymentReceiptID]
+    );
+
+    if (rows.length === 0) {
+      return h.response({
+        status: 'fail',
+        message: 'Payment receipt not found'
+      }).code(404);
+    }
+
+    return h.response({
+      status: 'success',
+      data: rows[0] // Return the first (and only) row
+    }).code(200);
+
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
+
+// Perlu di adjust pakai table tourism
+const searchTourismHandler = async (request, h) => {
+  const { tourismName } = request.query;
+
+  try {
+    // Build the query to search by tourism name
+    // Query to search for tourism places by name
+    const [rows] = await pool.query(
+      'SELECT * FROM tourism WHERE name LIKE ?',
+      [`%${tourismName}%`]
+    );
+
+    // Check if no records are found
+    if (rows.length === 0) {
+      return h.response({
+        status: 'fail',
+        message: 'No tourism places found with the given name'
+      }).code(404);
+    }
+
+    // If records are found, return them
+    return h.response({
+      status: 'success',
+      data: rows
+    }).code(200);
+    
   } catch (err) {
     console.error(err);
     return h.response({
@@ -321,5 +567,11 @@ module.exports = {
   viewProfilHandler,
   editProfilHandler,
   addPaidPlanHandler,
-  addFavouritePlanHandler
+  addFavouritePlanHandler,
+  viewPaidPlanHandler,
+  viewFavouritePlanHandler,
+  viewDetailPaidPlanHandler,
+  viewDetailFavouritePlanHandler,
+  viewPaymentReceipt,
+  searchTourismHandler
 };

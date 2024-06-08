@@ -4,7 +4,13 @@ const {
   viewProfilHandler,
   editProfilHandler,
   addPaidPlanHandler,
-  addFavouritePlanHandler
+  addFavouritePlanHandler,
+  viewPaidPlanHandler,
+  viewFavouritePlanHandler,
+  viewDetailPaidPlanHandler,
+  viewDetailFavouritePlanHandler,
+  viewPaymentReceipt,
+  searchTourismHandler
 } = require("./handlers");
 
 const routes = [
@@ -46,7 +52,37 @@ const routes = [
     method: 'POST',
     path: '/add-favourite-plan',
     handler: addFavouritePlanHandler
-  }
+  },
+  {
+    method: 'GET',
+    path: '/view-paid-plan/{userID}',
+    handler: viewPaidPlanHandler
+  },
+  {
+    method: 'GET',
+    path: '/view-favourite-plan/{userID}',
+    handler: viewFavouritePlanHandler
+  },
+  {
+    method: 'GET',
+    path: '/view-detail-paid-plan/{userID}/{tourismID}/{goAt}',
+    handler: viewDetailPaidPlanHandler
+  },
+  {
+    method: 'GET',
+    path: '/view-detail-favourite-plan/{userID}/{tourismID}/{goAt}',
+    handler: viewDetailFavouritePlanHandler
+  },
+  {
+    method: 'GET',
+    path: '/view-payment-receipt/{paymentReceiptID}',
+    handler: viewPaymentReceipt
+  },
+  {
+    method: 'GET',
+    path: '/search-tourism',
+    handler: searchTourismHandler
+  },
 ];
 
 module.exports = routes;
