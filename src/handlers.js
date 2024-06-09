@@ -574,6 +574,95 @@ const searchTourismHandler = async (request, h) => {
   }
 };
 
+const getAllPreferencesHandler = async (request, h) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM preferences;');
+
+    return h.response({
+      status: 'success',
+      data: rows
+    }).code(200);
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
+
+const addUserPreferencesHandler = async (request, h) => {
+  const { userID, preferences } = request.payload;
+
+  if (!userID || !preferences || preferences.length !== 3) {
+    return h.response({
+      status: 'fail',
+      message: 'User ID and exactly three preferences are required'
+    }).code(400);
+  }
+
+  try {
+    const updatedAt = new Date();
+
+    const connection = await pool.getConnection();
+
+    try {
+      // Start a transaction
+      await connection.beginTransaction();
+
+      // Insert each preference into the users_preferences table
+      for (const preferenceID of preferences) {
+        await connection.query(
+          'INSERT INTO users_preferences (users_id, preferences_id, updated_at) VALUES (?, ?, ?);',
+          [userID, preferenceID, updatedAt]
+        );
+      }
+
+      // Commit the transaction
+      await connection.commit();
+
+      return h.response({
+        status: 'success',
+        message: 'User preferences added successfully'
+      }).code(200);
+    } catch (err) {
+      // Rollback the transaction in case of an error
+      await connection.rollback();
+      console.error(err);
+      return h.response({
+        status: 'fail',
+        message: 'User already has data for preferences'
+      }).code(409);
+    } finally {
+      // Release the connection back to the pool
+      connection.release();
+    }
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
+
+const getAllPaymentMethodHandler = async (request, h) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM payment_methods;');
+
+    return h.response({
+      status: 'success',
+      data: rows
+    }).code(200);
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
+
 module.exports = {
   signUpHandler,
   loginHandler,
@@ -586,5 +675,8 @@ module.exports = {
   viewDetailPaidPlanHandler,
   viewDetailFavouritePlanHandler,
   viewPaymentReceipt,
-  searchTourismHandler
+  searchTourismHandler,
+  getAllPreferencesHandler,
+  addUserPreferencesHandler,
+  getAllPaymentMethodHandler
 };

@@ -10,7 +10,10 @@ const {
   viewDetailPaidPlanHandler,
   viewDetailFavouritePlanHandler,
   viewPaymentReceipt,
-  searchTourismHandler
+  searchTourismHandler,
+  getAllPreferencesHandler,
+  addUserPreferencesHandler,
+  getAllPaymentMethodHandler
 } = require("./handlers");
 
 const routes = [
@@ -83,6 +86,21 @@ const routes = [
     path: '/search-tourism',
     handler: searchTourismHandler
   },
+  {
+    method: 'GET',
+    path: '/preferences',
+    handler: getAllPreferencesHandler
+  },
+  {
+    method: 'POST',
+    path: '/user-preferences',
+    handler: addUserPreferencesHandler
+  },
+  {
+    method: 'GET',
+    path: '/payment-methods',
+    handler: getAllPaymentMethodHandler
+  }
 ];
 
 module.exports = routes;
