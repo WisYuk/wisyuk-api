@@ -663,6 +663,65 @@ const getAllPaymentMethodHandler = async (request, h) => {
   }
 };
 
+const viewAllTourism = async (request, h) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM tourism;');
+
+    return h.response({
+      status: 'success',
+      data: rows
+    }).code(200);
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+};
+
+const viewTourismDetail = async (request, h) => {
+  const { tourismID } = request.params;
+
+  try {
+    const [hotels] = await pool.query(
+      `SELECT * FROM hotels h 
+      INNER JOIN hotels_has_tourism ht on h.id = ht.hotels_id
+      WHERE ht.tourism_id = ?`,
+      [tourismID]
+    );
+
+    const [tourGuides] = await pool.query(
+      `SELECT * FROM tour_guides tg 
+      INNER JOIN tourism_has_tour_guides ttg on tg.id = ttg.tour_guides_id
+      WHERE ttg.tourism_id = ?`,
+      [tourismID]
+    );
+
+    const [rides] = await pool.query(
+      `SELECT * FROM rides r 
+      INNER JOIN tourism_has_rides tr on r.id = tr.rides_id
+      WHERE tr.tourism_id = ?`,
+      [tourismID]
+    );
+
+    return h.response({
+      status: 'success',
+      dataHotels: hotels,
+      dataTourGuides: tourGuides,
+      dataRides: rides
+    }).code(200);
+
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
+
+};
+
 module.exports = {
   signUpHandler,
   loginHandler,
@@ -678,5 +737,7 @@ module.exports = {
   searchTourismHandler,
   getAllPreferencesHandler,
   addUserPreferencesHandler,
-  getAllPaymentMethodHandler
+  getAllPaymentMethodHandler,
+  viewAllTourism,
+  viewTourismDetail
 };

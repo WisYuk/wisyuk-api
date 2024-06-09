@@ -13,7 +13,9 @@ const {
   searchTourismHandler,
   getAllPreferencesHandler,
   addUserPreferencesHandler,
-  getAllPaymentMethodHandler
+  getAllPaymentMethodHandler,
+  viewAllTourism,
+  viewTourismDetail
 } = require("./handlers");
 
 const routes = [
@@ -100,6 +102,16 @@ const routes = [
     method: 'GET',
     path: '/payment-methods',
     handler: getAllPaymentMethodHandler
+  },
+  {
+    method: 'GET',
+    path: '/tourisms',
+    handler: viewAllTourism
+  },
+  {
+    method: 'GET',
+    path: '/tourism-detail/{tourismID}',
+    handler: viewTourismDetail
   }
 ];
 
