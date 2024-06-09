@@ -262,10 +262,18 @@ const addPaidPlanHandler = async (request, h) => {
     // Start a transaction
     await connection.beginTransaction();
 
+    // Get prices for hotel, ride, and tour guide
+    const [[hotel]] = await connection.query('SELECT price FROM hotels WHERE id = ?', [hotelID]);
+    const [[ride]] = await connection.query('SELECT price FROM rides WHERE id = ?', [rideID]);
+    const [[tourGuide]] = await connection.query('SELECT price FROM tour_guides WHERE id = ?', [tourGuideID]);
+
+    // Calculate total payment
+    const paymentTotal = (hotel ? hotel.price : 0) + (ride ? ride.price : 0) + (tourGuide ? tourGuide.price : 0);
+
     // Insert into payment_receipts
     const [paymentResult] = await connection.query(
-      'INSERT INTO payment_receipts (created_at, updated_at, status, users_id, payment_methods_id) VALUES (?,?,?,?,?);',
-      [createdAt, createdAt, status, userID, paymentMethodID]
+      'INSERT INTO payment_receipts (created_at, updated_at, status, users_id, payment_methods_id, payment_total) VALUES (?,?,?,?,?,?);',
+      [createdAt, createdAt, status, userID, paymentMethodID, paymentTotal]
     );
 
     // Get the inserted payment_receipts_id
@@ -496,11 +504,16 @@ const viewPaymentReceipt = async (request, h) => {
 
   try {
     const [rows] = await pool.query(
-      `SELECT pr.created_at, pr.updated_at, pr.status, pr.users_id, pr.payment_methods_id,
-              u.name AS user_name, pm.name AS payment_method_name
+      `SELECT pr.created_at, pr.updated_at, pr.status, pr.users_id, pr.payment_methods_id, pr.payment_total,
+              u.name AS user_name, pm.name AS payment_method_name,
+              h.price AS hotel_price, r.price AS ride_price, tg.price AS tour_guide_price
        FROM payment_receipts pr
        INNER JOIN users u ON u.id = pr.users_id
        INNER JOIN payment_methods pm ON pm.id = pr.payment_methods_id
+       INNER JOIN user_plans up ON up.payment_receipts_id = pr.id
+       INNER JOIN hotels h ON h.id = up.hotels_id
+       INNER JOIN rides r ON r.id = up.rides_id
+       INNER JOIN tour_guides tg ON tg.id = up.tour_guides_id
        WHERE pr.id = ?;`,
       [paymentReceiptID]
     );
@@ -551,7 +564,7 @@ const searchTourismHandler = async (request, h) => {
       status: 'success',
       data: rows
     }).code(200);
-    
+
   } catch (err) {
     console.error(err);
     return h.response({
