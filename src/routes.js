@@ -15,7 +15,8 @@ const {
   addUserPreferencesHandler,
   getAllPaymentMethodHandler,
   viewAllTourism,
-  viewTourismDetail
+  viewTourismDetail,
+  viewRecommendedTourism
 } = require("./handlers");
 
 const routes = [
@@ -42,8 +43,7 @@ const routes = [
         output: 'stream',
         parse: true,
         multipart: true,
-        allow: 'multipart/form-data',
-        maxBytes: 1000000
+        allow: 'multipart/form-data'
       },
       handler: editProfilHandler
     }
@@ -112,7 +112,12 @@ const routes = [
     method: 'GET',
     path: '/tourism-detail/{tourismID}',
     handler: viewTourismDetail
-  }
+  },
+  {
+    method: 'POST',
+    path: '/view-recommendation',
+    handler: viewRecommendedTourism
+  },
 ];
 
 module.exports = routes;

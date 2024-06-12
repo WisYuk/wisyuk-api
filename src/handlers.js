@@ -1,10 +1,7 @@
 const pool = require('./db');
 const bcrypt = require('bcrypt');
 const uploadFileStream = require('./cloudStorage');
-// const fs = require('fs');
-// const path = require('path');
-// const { rejects } = require('assert');
-// const { request } = require('http');
+const axios = require('axios');
 
 const saltPass = 10;
 
@@ -163,6 +160,7 @@ const editProfilHandler = async (request, h) => {
   const { userID } = request.params;
   const { name, password, preferences } = request.payload;
   const file = request.payload.image;
+  console.log(file);
 
   try {
     // Query for current data
@@ -359,7 +357,7 @@ const viewPaidPlanHandler = async (request, h) => {
   try {
     // query to get data from user_plans table
     const [rows] = await pool.query(
-      `SELECT t.name, up.go_at FROM user_plans up 
+      `SELECT t.id, t.name, t.description, t.image, up.go_at FROM user_plans up 
       INNER JOIN users u ON u.id = up.users_id
       INNER JOIN tourism t ON t.id = up.tourism_id
       WHERE up.users_id = ?;`,
@@ -393,7 +391,7 @@ const viewFavouritePlanHandler = async (request, h) => {
   try {
     // query to get data from user_plans table
     const [rows] = await pool.query(
-      `SELECT t.name, fp.go_at FROM favourite_plans fp 
+      `SELECT t.id, t.name, t.description, t.image, fp.go_at FROM favourite_plans fp 
        INNER JOIN users u ON u.id = fp.users_id 
        INNER JOIN tourism t ON t.id = fp.tourism_id
        WHERE fp.users_id = ?;`,
@@ -631,8 +629,8 @@ const addUserPreferencesHandler = async (request, h) => {
       console.error(err);
       return h.response({
         status: 'fail',
-        message: 'User already has data for preferences'
-      }).code(409);
+        message: 'Each preferences should be different.'
+      }).code(500);
     } finally {
       // Release the connection back to the pool
       connection.release();
@@ -719,7 +717,85 @@ const viewTourismDetail = async (request, h) => {
       message: 'Internal server error'
     }).code(500);
   }
+};
 
+const formatDate = (dateString) => {
+  const [year, month, day] = dateString.split('-');
+  return `${day}_${month}_${year}`;
+};
+
+const viewRecommendedTourism = async (request, h) => {
+  const { go_at, user_preferences } = request.payload;
+  console.log(go_at, user_preferences);
+
+  if (!go_at || !user_preferences || user_preferences.length !== 6) {
+    return h.response({
+      status: 'fail',
+      message: 'go_at and exactly 6 user_preferences are required'
+    }).code(400);
+  }
+
+  try {
+    // Convert the go_at date to the required format
+    const formattedDate = formatDate(go_at);
+    console.log(formattedDate);
+
+    // Prepare the input for the ML model
+    const modelInput = {
+      date: formattedDate,
+      user_input: user_preferences
+    };
+
+    // Make a request to the ML model endpoint
+    const modelResponse = await axios.post('http://35.186.145.213/recommend', modelInput);
+    const recommendations = modelResponse.data.top_N_indices;
+    console.log(recommendations);
+    
+    if (!recommendations || recommendations.length === 0) {
+      return h.response({
+        status: 'fail',
+        message: 'No recommendations found'
+      }).code(404);
+    }
+
+    // Fetch the recommended tourism spots from the database
+    const placeholders = recommendations.map(() => '?').join(', ');
+    const query = `SELECT * FROM tourism WHERE id IN (${placeholders})`;
+    const [rows] = await pool.query(query, recommendations);
+
+    if (rows.length === 0) {
+      return h.response({
+        status: 'fail',
+        message: 'No tourism spots found for the given recommendations'
+      }).code(404);
+    }
+
+    // Prepare the response with recommendations and tourism spot details
+    const responseData = {
+      recommendations: recommendations.map((id) => ({
+        id,
+        details: rows.find((row) => row.id === id)
+      }))
+    };
+
+    return h.response({
+      status: 'success',
+      data: responseData
+    }).code(200);
+
+  } catch (err) {
+    console.error('Error:', err.message);
+    if (err.response && err.response.status === 404) {
+      return h.response({
+        status: 'fail',
+        message: 'No recommendations found'
+      }).code(404);
+    }
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  }
 };
 
 module.exports = {
@@ -739,5 +815,6 @@ module.exports = {
   addUserPreferencesHandler,
   getAllPaymentMethodHandler,
   viewAllTourism,
-  viewTourismDetail
+  viewTourismDetail,
+  viewRecommendedTourism
 };
