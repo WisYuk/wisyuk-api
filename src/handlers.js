@@ -186,6 +186,8 @@ const editProfilHandler = async (request, h) => {
       const imagePath = file.hapi.filename;
       imageUrl = await uploadFileStream(file, imagePath);
     }
+    // buat tau bentuk data yg dikirim seperti apa
+    console.log(imageUrl);
 
     const updatedAt = new Date();
 
