@@ -16,7 +16,8 @@ const {
   getAllPaymentMethodHandler,
   viewAllTourism,
   viewTourismDetail,
-  viewRecommendedTourism
+  viewRecommendedTourism,
+  deleteFavouritePlanHandler
 } = require("./handlers");
 
 const routes = [
@@ -119,6 +120,11 @@ const routes = [
     path: '/view-recommendation',
     handler: viewRecommendedTourism
   },
+  {
+    method: 'DELETE',
+    path: '/delete-favourite',
+    handler: deleteFavouritePlanHandler
+  }
 ];
 
 module.exports = routes;

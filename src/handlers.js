@@ -800,6 +800,53 @@ const viewRecommendedTourism = async (request, h) => {
   }
 };
 
+const deleteFavouritePlanHandler = async (request, h) => {
+  const { userID, tourismID, go_date } = request.payload;
+
+  if (!userID || !tourismID || !go_date) {
+    return h.response({
+      status: 'fail',
+      message: 'All fields are required'
+    }).code(400);
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    // Check if the plan exists
+    const [existingPlans] = await connection.query(
+      'SELECT 1 FROM favourite_plans WHERE users_id = ? AND tourism_id = ? AND go_at = ?',
+      [userID, tourismID, go_date]
+    );
+
+    if (existingPlans.length === 0) {
+      return h.response({
+        status: 'fail',
+        message: 'Plan not found'
+      }).code(404);
+    }
+
+    // Delete the plan
+    await connection.query(
+      'DELETE FROM favourite_plans WHERE users_id = ? AND tourism_id = ? AND go_at = ?',
+      [userID, tourismID, go_date]
+    );
+
+    return h.response({
+      status: 'success',
+      message: 'Plan removed from favourites'
+    }).code(200);
+
+  } catch (err) {
+    console.error(err);
+    return h.response({
+      status: 'fail',
+      message: 'Internal server error'
+    }).code(500);
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   signUpHandler,
   loginHandler,
@@ -818,5 +865,6 @@ module.exports = {
   getAllPaymentMethodHandler,
   viewAllTourism,
   viewTourismDetail,
-  viewRecommendedTourism
+  viewRecommendedTourism,
+  deleteFavouritePlanHandler
 };

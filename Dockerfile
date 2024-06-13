@@ -1,6 +1,6 @@
 FROM node:20
 
-WORKDIR /wisyuk-api
+WORKDIR /usr/src/app
 
 COPY package*.json ./
 
