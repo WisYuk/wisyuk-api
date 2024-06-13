@@ -43,7 +43,8 @@ const routes = [
         output: 'stream',
         parse: true,
         multipart: true,
-        allow: 'multipart/form-data'
+        allow: 'multipart/form-data',
+        maxBytes: 50 * 1024 * 1024 // 50 MB
       },
       handler: editProfilHandler
     }

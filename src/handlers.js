@@ -168,7 +168,7 @@ const editProfilHandler = async (request, h) => {
     if (userRows.length === 0) {
       return h.response({
         status: 'fail',
-        message: 'user not found'
+        message: 'User not found'
       }).code(404);
     }
 
@@ -186,7 +186,6 @@ const editProfilHandler = async (request, h) => {
       const imagePath = file.hapi.filename;
       imageUrl = await uploadFileStream(file, imagePath);
     }
-    // buat tau bentuk data yg dikirim seperti apa
     console.log(imageUrl);
 
     const updatedAt = new Date();
@@ -231,6 +230,7 @@ const editProfilHandler = async (request, h) => {
     }).code(500);
   }
 };
+
 
 const addPaidPlanHandler = async (request, h) => {
   const { userID, tourismID, hotelID, rideID, tourGuideID, go_date, status, paymentMethodID } = request.payload;
