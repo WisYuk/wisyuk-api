@@ -25,7 +25,7 @@ const signUpHandler = async (request, h) => {
         message: 'email already exists'
       }).code(409);
     }
-
+    
     // Hash the password
     const hashedPass = await bcrypt.hash(password, saltPass);
 
@@ -745,7 +745,7 @@ const viewRecommendedTourism = async (request, h) => {
 
     // Retrieve user preferences from the database
     const [userPreferences] = await pool.query(
-      'SELECT preferences_id FROM users_preferences WHERE user_id = ?',
+      'SELECT preferences_id FROM users_preferences WHERE users_id = ?',
       [userID]
     );
 
