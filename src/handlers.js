@@ -506,7 +506,9 @@ const viewPaymentReceipt = async (request, h) => {
     const [rows] = await pool.query(
       `SELECT pr.created_at, pr.updated_at, pr.status, pr.users_id, pr.payment_methods_id, pr.payment_total,
               u.name AS user_name, pm.name AS payment_method_name,
-              h.price AS hotel_price, r.price AS ride_price, tg.price AS tour_guide_price
+              h.name AS hotel_name, h.price AS hotel_price, 
+              r.name AS ride_name, r.price AS ride_price, 
+              tg.name AS guide_name, tg.price AS tour_guide_price
        FROM payment_receipts pr
        INNER JOIN users u ON u.id = pr.users_id
        INNER JOIN payment_methods pm ON pm.id = pr.payment_methods_id
@@ -727,32 +729,62 @@ const formatDate = (dateString) => {
 };
 
 const viewRecommendedTourism = async (request, h) => {
-  const { go_at, user_preferences } = request.payload;
-  console.log(go_at, user_preferences);
+  const { go_at, userID } = request.payload;
+  console.log(go_at, userID);
 
-  if (!go_at || !user_preferences || user_preferences.length !== 6) {
+  if (!go_at || !userID) {
     return h.response({
       status: 'fail',
-      message: 'go_at and exactly 6 user_preferences are required'
+      message: 'go_at and userID are required'
     }).code(400);
   }
 
   try {
-    // Convert the go_at date to the required format
     const formattedDate = formatDate(go_at);
     console.log(formattedDate);
 
-    // Prepare the input for the ML model
-    const modelInput = {
-      date: formattedDate,
-      user_input: user_preferences
+    // Retrieve user preferences from the database
+    const [userPreferences] = await pool.query(
+      'SELECT preferences_id FROM users_preferences WHERE user_id = ?',
+      [userID]
+    );
+
+    if (userPreferences.length === 0) {
+      return h.response({
+        status: 'fail',
+        message: 'User preferences not found'
+      }).code(404);
+    }
+
+    // Define the mapping of preference IDs to their indices
+    const preferenceMapping = {
+      1: 0, // Bahari
+      2: 1, // Budaya
+      3: 2, // Cagar Alam
+      4: 3, // Pusat Perbelanjaan
+      5: 4, // Tempat Ibadah
+      6: 5  // Taman Hiburan
     };
 
-    // Make a request to the ML model endpoint
+    // Initialize the preferences array with 0s
+    const preferencesArray = [0, 0, 0, 0, 0, 0];
+
+    // Set the selected preferences to 1 based on the mapping
+    userPreferences.forEach(pref => {
+      if (preferenceMapping.hasOwnProperty(pref.preferences_id)) {
+        preferencesArray[preferenceMapping[pref.preferences_id]] = 1;
+      }
+    });
+
+    const modelInput = {
+      date: formattedDate,
+      user_input: preferencesArray
+    };
+
     const modelResponse = await axios.post('http://35.186.145.213/recommend', modelInput);
     const recommendations = modelResponse.data.top_N_indices;
     console.log(recommendations);
-    
+
     if (!recommendations || recommendations.length === 0) {
       return h.response({
         status: 'fail',
@@ -801,7 +833,7 @@ const viewRecommendedTourism = async (request, h) => {
 };
 
 const deleteFavouritePlanHandler = async (request, h) => {
-  const { userID, tourismID, go_date } = request.payload;
+  const { userID, tourismID, go_date } = request.params;
 
   if (!userID || !tourismID || !go_date) {
     return h.response({

@@ -122,7 +122,7 @@ const routes = [
   },
   {
     method: 'DELETE',
-    path: '/delete-favourite',
+    path: '/favourites/{userID}/{tourismID}/{go_date}',
     handler: deleteFavouritePlanHandler
   }
 ];
