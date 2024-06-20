@@ -25,7 +25,7 @@ const signUpHandler = async (request, h) => {
         message: 'email already exists'
       }).code(409);
     }
-    
+
     // Hash the password
     const hashedPass = await bcrypt.hash(password, saltPass);
 
@@ -263,12 +263,22 @@ const addPaidPlanHandler = async (request, h) => {
     await connection.beginTransaction();
 
     // Get prices for hotel, ride, and tour guide
-    const [[hotel]] = await connection.query('SELECT price FROM hotels WHERE id = ?', [hotelID]);
+    const [[hotel]] = await connection.query('SELECT AVG((min_price + max_price) / 2) AS price FROM hotels WHERE id = ?', [hotelID]);
     const [[ride]] = await connection.query('SELECT price FROM rides WHERE id = ?', [rideID]);
     const [[tourGuide]] = await connection.query('SELECT price FROM tour_guides WHERE id = ?', [tourGuideID]);
 
     // Calculate total payment
-    const paymentTotal = (hotel ? hotel.price : 0) + (ride ? ride.price : 0) + (tourGuide ? tourGuide.price : 0);
+    const hotelPrice = hotel ? parseFloat(hotel.price) : 0;
+    const ridePrice = ride ? parseFloat(ride.price) : 0;
+    const tourGuidePrice = tourGuide ? parseFloat(tourGuide.price) : 0;
+    const paymentTotal = hotelPrice + ridePrice + tourGuidePrice;
+
+    // Round the total payment to two decimal places for better readability
+    const roundedPaymentTotal = parseFloat(paymentTotal.toFixed(2));
+
+    console.log(`Total Payment: ${roundedPaymentTotal}`);
+
+    console.log(`Total Payment: ${paymentTotal}`);
 
     // Insert into payment_receipts
     const [paymentResult] = await connection.query(
@@ -427,7 +437,7 @@ const viewDetailPaidPlanHandler = async (request, h) => {
   try {
     const [rows] = await pool.query(
       `SELECT t.image AS tourism_image, t.name AS tourism_name, t.description AS tourism_description, 
-              h.name AS hotel_name, r.name AS ride_name, tg.name AS tour_guide_name, pr.id AS payment_receipt_id
+              h.name AS hotel_name, CONCAT(r.name, ' by ', r.perusahaan) AS ride_name, tg.name AS tour_guide_name, pr.id AS payment_receipt_id
        FROM user_plans up 
        INNER JOIN users u ON u.id = up.users_id 
        INNER JOIN tourism t ON t.id = up.tourism_id 
@@ -466,7 +476,7 @@ const viewDetailFavouritePlanHandler = async (request, h) => {
   try {
     const [rows] = await pool.query(
       `SELECT t.image AS tourism_image, t.name AS tourism_name, t.description AS tourism_description, 
-              h.name AS hotel_name, r.name AS ride_name, tg.name AS tour_guide_name 
+              h.name AS hotel_name, CONCAT(r.name, ' by ', r.perusahaan) AS ride_name, tg.name AS tour_guide_name 
        FROM favourite_plans fp 
        INNER JOIN users u ON u.id = fp.users_id 
        INNER JOIN tourism t ON t.id = fp.tourism_id 
@@ -506,8 +516,8 @@ const viewPaymentReceipt = async (request, h) => {
     const [rows] = await pool.query(
       `SELECT pr.created_at, pr.updated_at, pr.status, pr.users_id, pr.payment_methods_id, pr.payment_total,
               u.name AS user_name, pm.name AS payment_method_name,
-              h.name AS hotel_name, h.price AS hotel_price, 
-              r.name AS ride_name, r.price AS ride_price, 
+              h.name AS hotel_name, AVG((h.min_price + h.max_price) / 2) AS hotel_price,
+              CONCAT(r.name, ' by ', r.perusahaan) AS ride_name, r.price AS ride_price, 
               tg.name AS guide_name, tg.price AS tour_guide_price
        FROM payment_receipts pr
        INNER JOIN users u ON u.id = pr.users_id
@@ -516,9 +526,12 @@ const viewPaymentReceipt = async (request, h) => {
        INNER JOIN hotels h ON h.id = up.hotels_id
        INNER JOIN rides r ON r.id = up.rides_id
        INNER JOIN tour_guides tg ON tg.id = up.tour_guides_id
-       WHERE pr.id = ?;`,
+       WHERE pr.id = ?
+       GROUP BY pr.created_at, pr.updated_at, pr.status, pr.users_id, pr.payment_methods_id, pr.payment_total,
+                u.name, pm.name, h.name, r.name, r.perusahaan, r.price, tg.name, tg.price;`,
       [paymentReceiptID]
     );
+
 
     if (rows.length === 0) {
       return h.response({
@@ -667,7 +680,8 @@ const getAllPaymentMethodHandler = async (request, h) => {
 
 const viewAllTourism = async (request, h) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM tourism;');
+    // Modify the query to fetch 10 random rows
+    const [rows] = await pool.query('SELECT * FROM tourism ORDER BY RAND() LIMIT 10;');
 
     return h.response({
       status: 'success',
@@ -701,9 +715,10 @@ const viewTourismDetail = async (request, h) => {
     );
 
     const [rides] = await pool.query(
-      `SELECT * FROM rides r 
-      INNER JOIN tourism_has_rides tr on r.id = tr.rides_id
-      WHERE tr.tourism_id = ?`,
+      `SELECT r.id, CONCAT(r.name, ' by ', r.perusahaan) AS name, r.description, r.city, r.price, r.image
+       FROM rides r 
+       INNER JOIN tourism_has_rides tr on r.id = tr.rides_id
+       WHERE tr.tourism_id = ?`,
       [tourismID]
     );
 
